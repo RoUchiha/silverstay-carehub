@@ -6,9 +6,7 @@ SilverStay CareHub is a live-demo prototype for complex hospital discharges. It 
 
 Public Vercel demo:
 
-```text
-https://silverstay-carehub.vercel.app
-```
+[Open the SilverStay CareHub live demo](https://silverstay-carehub.vercel.app)
 
 The app combines three ideas:
 
@@ -24,9 +22,7 @@ npm start
 
 Then open:
 
-```text
-http://localhost:4173
-```
+[http://localhost:4173](http://localhost:4173)
 
 No dependency install is required. The app is static HTML, CSS, and JavaScript.
 
@@ -183,7 +179,7 @@ A strong interview walkthrough:
 The deployed demo was checked with:
 
 - Public URL HTTP smoke check: `200`
-- Live Chrome interaction test on `https://silverstay-carehub.vercel.app`
+- Live Chrome interaction test on [https://silverstay-carehub.vercel.app](https://silverstay-carehub.vercel.app)
 - Search and patient selection flow
 - Provider selection and decision logging flow
 - AI action-plan generation flow
