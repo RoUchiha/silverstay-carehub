@@ -1,0 +1,9 @@
+{
+  "name": "silverstay-carehub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interview prototype for SilverStay complex discharge workflows.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
