@@ -1,0 +1,476 @@
+SilverStay CareHub Security Review
+Last updated: 2026-07-05
+
+Scope
+-----
+This review covers the SilverStay CareHub prototype:
+
+- index.html
+- app.js
+- styles.css
+- server.js
+- vercel.json
+- assets/care-transition-visual.png
+
+The app is a static interview demo. It has no database, no authentication layer,
+no backend patient records, no API calls, no cookies, and no real patient data.
+
+Important privacy note: all patient, provider, payer, and family examples are
+dummy data. They are fictional demo records and should not be treated as PHI.
+The app should not be modified to include real PHI unless a production-grade
+security, privacy, compliance, access-control, logging, and data-retention model
+is added first.
+
+
+Security Goals
+--------------
+The security review focused on these goals:
+
+1. Prevent dummy/user-entered strings from becoming executable HTML or JavaScript.
+2. Keep the static demo from calling unexpected external services.
+3. Reduce browser attack surface with security headers.
+4. Prevent local static-server path traversal during development.
+5. Verify that the app does not expose secrets, tokens, credentials, or real PHI.
+6. Map the app against OWASP-style risks and document what is covered versus not
+   applicable in this prototype.
+
+
+High-Level Result
+-----------------
+Result: PASS for the current static dummy-data demo.
+
+The app is low-risk because it is static, client-only, and does not store or send
+data. The main risks for this type of prototype are browser-side injection,
+security-header gaps, accidental PHI exposure, and unsafe local static serving.
+Those areas were reviewed and hardened.
+
+The review did not certify this as production-ready healthcare software. A real
+SilverStay production application would need HIPAA-grade controls, role-based
+access control, audit logs, encryption, identity management, consent/retention
+rules, secure backend APIs, and a formal penetration test.
+
+
+Reference Basis
+---------------
+The review was mapped against OWASP-style web application risks and OWASP
+guidance for XSS and CSP:
+
+- OWASP Top 10:2025
+  https://owasp.org/Top10/2025/
+- OWASP Cross Site Scripting Prevention Cheat Sheet
+  https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
+- OWASP Content Security Policy Cheat Sheet
+  https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html
+
+
+Checks Performed
+----------------
+
+1. Dummy Data / PHI Review
+
+What was checked:
+- Reviewed all patient records in app.js.
+- Reviewed provider records, payer paths, family descriptions, timelines, and
+  generated message templates.
+- Checked for obvious real-world identifiers, credentials, API keys, tokens,
+  phone numbers, real emails, account IDs, and real addresses.
+
+Result:
+- No real PHI was found.
+- Provider contact emails use the reserved example-style domain pattern.
+- Patient names and case details are fictional demonstration content.
+
+How this safeguards data:
+- The public GitHub repo and Vercel demo do not expose real patient data.
+- The app can be safely shown in an interview without revealing protected health
+  information.
+
+Production note:
+- Real patient data must never be hard-coded into client-side JavaScript.
+- Real PHI should live behind authenticated APIs, access controls, encryption,
+  audit logging, and least-privilege authorization.
+
+
+2. Cross-Site Scripting / HTML Injection Review
+
+What was checked:
+- All dynamic display values that can enter HTML strings are routed through the
+  esc() helper before being inserted into markup.
+- esc() now encodes &, <, >, double quote, and apostrophe.
+- Search input, selected patient/provider text, generated drafts, timelines,
+  provider cautions, and task labels are rendered as text instead of trusted HTML.
+- The app does not use eval(), Function(), remote script loading, or third-party
+  script tags.
+
+Result:
+- No executable injection path was found in the current dummy-data app.
+- The main rendering risk is controlled through output encoding.
+
+How this safeguards data:
+- If a future dummy-data value accidentally contains something like
+  <script>alert(1)</script>, it should render as text rather than execute.
+- User-entered coordinator notes are also escaped before they appear in a
+  textarea or generated UI.
+
+Production note:
+- This static prototype uses innerHTML-style template rendering, so output
+  encoding must remain mandatory for every variable inserted into markup.
+- A production app should prefer framework-safe text rendering or DOM APIs such
+  as textContent for untrusted values.
+
+
+3. Content Security Policy Review
+
+What was checked:
+- Added a Content-Security-Policy header in vercel.json.
+- Added a matching local development CSP in server.js.
+- The CSP limits scripts to same-origin files only.
+- The CSP blocks object/embed content.
+- The CSP blocks forms.
+- The CSP blocks framing through frame-ancestors 'none'.
+- The CSP blocks network calls through connect-src 'none'.
+- Images are limited to same-origin and data: for the inline favicon.
+
+Current deployed CSP:
+default-src 'self';
+script-src 'self';
+style-src 'self' 'unsafe-inline';
+img-src 'self' data:;
+font-src 'self';
+connect-src 'none';
+object-src 'none';
+base-uri 'none';
+form-action 'none';
+frame-ancestors 'none';
+upgrade-insecure-requests
+
+Result:
+- CSP is now present for Vercel deployment and local development.
+
+How this safeguards data:
+- Even if an injection bug is introduced later, the browser has an additional
+  policy layer that blocks remote scripts and network exfiltration.
+- connect-src 'none' is especially useful for this demo because the app should
+  not send data anywhere.
+
+Known tradeoff:
+- style-src includes 'unsafe-inline' because this prototype currently uses some
+  inline style attributes for small layout details. This is acceptable for a
+  static interview demo, but a production app should remove inline styles and use
+  CSS classes or CSS variables so the CSP can be stricter.
+
+
+4. Security Headers Review
+
+What was checked:
+- Added security headers to Vercel and local server responses.
+
+Headers added:
+- Content-Security-Policy
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: DENY
+- Referrer-Policy: no-referrer
+- Permissions-Policy
+- Cross-Origin-Opener-Policy: same-origin
+- Strict-Transport-Security on Vercel
+
+Result:
+- Browser attack surface is reduced.
+
+How this safeguards data:
+- nosniff reduces MIME-type confusion.
+- frame blocking reduces clickjacking risk.
+- no-referrer avoids leaking the page URL as a referrer.
+- Permissions-Policy disables access to camera, microphone, geolocation, payment,
+  USB, and clipboard-read. Clipboard-write is limited to self because the demo
+  intentionally supports copying generated drafts.
+- HSTS tells browsers to prefer HTTPS for the deployed domain.
+
+
+5. Local Static Server Path Traversal Review
+
+What was checked:
+- server.js previously served files by joining the request path to the project
+  root and checking the normalized path.
+- Hardened server.js to decode and normalize the request path, strip leading
+  slashes, reject null bytes, and verify the final path stays inside the project
+  root prefix.
+- 403 responses also include security headers.
+
+Result:
+- Local development server is harder to abuse with traversal paths such as:
+  /../README.md
+  /..%2F..%2Fsome-file
+  /%00
+
+How this safeguards data:
+- The local demo server should only serve project files, not arbitrary files from
+  the developer's machine.
+
+Production note:
+- Vercel serves static files directly; server.js is for local demo convenience.
+
+
+6. Dependency / Supply Chain Review
+
+What was checked:
+- package.json has no runtime dependencies.
+- The app uses only browser APIs and Node built-ins for the optional local server.
+- No package lock or node_modules are required for the app to run.
+
+Result:
+- Supply-chain attack surface is minimal for this prototype.
+
+How this safeguards data:
+- No third-party client libraries are loaded into the browser.
+- No npm dependency tree means there are no transitive package vulnerabilities
+  in the app itself.
+
+
+7. Secrets / Token Review
+
+What was checked:
+- Searched source files for obvious secret-bearing patterns.
+- Reviewed deployment config for tokens or private IDs.
+- Reviewed JavaScript for API keys, auth tokens, cookies, localStorage/session
+  storage, and external endpoints.
+
+Result:
+- No secrets or credentials are present in the source.
+- No API calls are made from the app.
+- No cookies or browser storage are used.
+
+How this safeguards data:
+- There is no credential material to leak from the public repository.
+- There is no client-side persistence of simulated case data.
+
+
+8. OWASP-Style Review
+
+This review used OWASP Top 10 categories as a checklist for the prototype.
+
+A01 Broken Access Control:
+- Not applicable to this static demo because there are no users, roles, sessions,
+  routes with protected data, or backend resources.
+- Production requirement: add role-based access control, least privilege, and
+  server-side authorization checks for hospital, SilverStay, provider, and admin
+  users.
+
+A02 Security Misconfiguration:
+- Addressed with explicit Vercel static routing and security headers.
+- Remaining production work: environment-specific hardening, monitoring, logging,
+  and secure defaults across APIs and infrastructure.
+
+A03 Software Supply Chain Failures:
+- Low current risk because there are no npm dependencies.
+- Production requirement: lockfiles, dependency scanning, SBOM, Dependabot or
+  equivalent, signed deploys where applicable.
+
+A04 Cryptographic Failures:
+- No sensitive data is stored or transmitted by this prototype.
+- Production requirement: TLS everywhere, encryption at rest, strong key
+  management, secret rotation, and no PHI in client bundles.
+
+A05 Injection:
+- Main prototype risk is browser-side HTML/JS injection.
+- Addressed with output encoding, no eval, no remote scripts, and CSP.
+- Production requirement: validate and encode on both server and client, use
+  parameterized queries for backend persistence, sanitize any rich text.
+
+A06 Insecure Design:
+- Reviewed design assumptions and documented that AI output is human-reviewed.
+- Production requirement: threat modeling, abuse cases, role-specific workflows,
+  auditability, and explicit data-retention rules.
+
+A07 Authentication Failures:
+- Not applicable to this static demo.
+- Production requirement: SSO/MFA, session management, passwordless or enterprise
+  identity, account lifecycle controls.
+
+A08 Software or Data Integrity Failures:
+- Current app does not accept remote code or remote data.
+- Production requirement: trusted build pipeline, integrity checks, controlled
+  deployments, and protection from tampered provider/patient data.
+
+A09 Security Logging and Alerting Failures:
+- Not applicable to this static demo because there is no backend event stream.
+- Production requirement: audit logs for viewing, editing, exporting, copying,
+  sending, provider decisions, PHI access, admin changes, and failed auth events.
+
+A10 Mishandling of Exceptional Conditions:
+- Local server returns simple 403/404 responses with security headers.
+- Production requirement: structured error handling that does not leak PHI,
+  stack traces, tokens, SQL, internal IDs, or provider contract details.
+
+
+Pen-Test Style Cases Checked
+----------------------------
+The following attack classes were considered for this prototype:
+
+1. Reflected XSS through search text.
+   Expected result: search text is not rendered as executable markup.
+
+2. Stored/demo-data XSS through patient/provider fields.
+   Expected result: dynamic fields are encoded through esc().
+
+3. Attribute injection through task labels, IDs, and filter values.
+   Expected result: quotes and apostrophes are encoded before entering markup.
+
+4. DOM clobbering through generated names or labels.
+   Expected result: user-controlled data is not used to create global variables
+   or script execution paths.
+
+5. JavaScript URL injection.
+   Expected result: app does not create dynamic links from patient/provider data.
+
+6. Network exfiltration.
+   Expected result: CSP connect-src 'none' blocks fetch/XHR/WebSocket/beacon
+   destinations.
+
+7. Clickjacking.
+   Expected result: frame-ancestors 'none' and X-Frame-Options DENY block
+   embedding.
+
+8. Path traversal against the local server.
+   Expected result: normalized paths outside the repo return 403 or 404.
+
+9. Secret exposure.
+   Expected result: no API keys, tokens, cookies, or real PHI in source.
+
+10. Dependency compromise.
+    Expected result: no app dependencies to exploit.
+
+
+Verification Results
+--------------------
+The following checks were run after hardening:
+
+1. Static secret scan
+   Result: PASS.
+   Notes: no API keys, auth tokens, private keys, cookies, localStorage,
+   sessionStorage, or external authorization material were found. Expected
+   false positives appeared where the documentation itself says "token" or
+   "secret."
+
+2. Dangerous rendering sink scan
+   Result: REVIEWED.
+   Notes: the app intentionally uses app.innerHTML for simple static-demo
+   templating. This is documented as the main rendering sink. Dynamic values are
+   routed through esc(), and the app does not use eval(), new Function(), remote
+   scripts, document.write(), or inline event-handler attributes.
+
+3. Local server header check
+   Result: PASS.
+   Observed:
+   - home page returned 200
+   - Content-Security-Policy present
+   - X-Content-Type-Options: nosniff present
+   - X-Frame-Options: DENY present
+   - Referrer-Policy: no-referrer present
+
+4. Local server traversal probe
+   Result: PASS.
+   Observed:
+   - /..%2FREADME.md returned 403
+   - malformed encoded path did not expose files
+
+5. Browser XSS payload probe
+   Result: PASS.
+   Payloads tested through the search field and coordinator note:
+   - <img src=x onerror=alert(1)>
+   - <script>alert(2)</script>
+   - </textarea><img src=x onerror=alert(3)>
+
+   Observed:
+   - loaded: true
+   - generated drafts: true
+   - dialogs: []
+   - console errors: []
+   - bad network responses: []
+   - injected script nodes: 0
+   - injected img[onerror] nodes: 0
+
+6. Public Vercel header verification
+   Result: PASS.
+   Deployment checked: dpl_CAH1LaDFTgvZiXLHQJsChiNvPrhh
+   Public URL checked: https://silverstay-carehub.vercel.app
+
+   Observed headers:
+   - Content-Security-Policy present
+   - X-Content-Type-Options: nosniff
+   - X-Frame-Options: DENY
+   - Referrer-Policy: no-referrer
+   - Permissions-Policy present
+   - Cross-Origin-Opener-Policy: same-origin
+   - Strict-Transport-Security present
+
+7. Public Vercel browser injection smoke test
+   Result: PASS.
+   Observed:
+   - loaded: true
+   - generated drafts: true
+   - dialogs: []
+   - console errors: []
+   - bad network responses: []
+   - injected script nodes: 0
+   - injected img[onerror] nodes: 0
+
+
+Data Safeguards In Plain English
+--------------------------------
+The demo safeguards data in four simple ways:
+
+1. It uses fake data only.
+   Nothing in the public demo should identify a real patient or provider contract.
+
+2. It does not send data anywhere.
+   There are no backend APIs, analytics calls, external scripts, or database
+   writes. The CSP also blocks network connections.
+
+3. It treats displayed values as text.
+   Dynamic data is escaped before being inserted into the page, which prevents
+   malicious strings from becoming executable code.
+
+4. It limits browser capabilities.
+   Security headers block framing, reduce MIME sniffing, limit browser
+   permissions, and constrain what the page can load.
+
+
+Limitations
+-----------
+This is a secure static prototype, not a production healthcare platform.
+
+Before using real patient data, the product would need:
+
+- HIPAA and legal review.
+- A Business Associate Agreement strategy where required.
+- Authenticated users.
+- Role-based access control.
+- Server-side authorization checks.
+- Encryption in transit and at rest.
+- Audit logs for PHI access and changes.
+- Data minimization and retention policy.
+- Secure provider/family messaging model.
+- Incident response plan.
+- Vulnerability scanning and formal penetration testing.
+- Secure AI controls for prompt injection, output review, PHI minimization, and
+  human approval.
+
+
+Files Changed As Part Of This Review
+------------------------------------
+- app.js: expanded esc() to encode apostrophes as well as &, <, >, and quotes.
+- server.js: added local security headers and hardened local path handling.
+- vercel.json: added deployed security headers.
+- SECURITY_REVIEW.txt: this review and data-safeguard explanation.
+
+
+Operational Recommendation
+--------------------------
+For the interview/demo, present this as:
+
+"Because this is public, the app uses only fictional data and no backend. I still
+treated it like a real healthcare workflow: I reviewed injection paths, added
+security headers, prevented external network calls, hardened local static file
+serving, and documented what would be required before real PHI could ever enter
+the system."

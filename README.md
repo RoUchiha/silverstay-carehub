@@ -540,12 +540,19 @@ badResponses: []
 errors: []
 ```
 
+## Security Review
+
+Security notes and defensive checks are documented in [SECURITY_REVIEW.txt](SECURITY_REVIEW.txt).
+
+The review covers dummy-data privacy, XSS and injection checks, OWASP-style risk mapping, CSP/security headers, local static-server path traversal, dependency exposure, and what would be required before real PHI could be used.
+
 ## Files
 
 - `index.html` - app entry point
 - `styles.css` - responsive product UI styling
 - `app.js` - dummy data, match scoring, state, and interactions
 - `server.js` - dependency-free static server
+- `SECURITY_REVIEW.txt` - plain-text defensive review and data-safeguard notes
 - `assets/care-transition-visual.png` - generated dashboard visual asset
 
 ## Product Positioning
