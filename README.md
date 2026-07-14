@@ -565,3 +565,15 @@ This is not meant to be a full production system. It is a focused prototype that
 - better provider confidence,
 - clearer family communication,
 - and human-approved AI assistance.
+
+## License and usage
+
+<!-- proprietary-license-notice -->
+
+Copyright (c) 2026 Roshaan Singh. All rights reserved.
+
+This repository is **source-available, not open source**. It is public for
+portfolio review and evaluation only. No permission is granted to copy, modify,
+redistribute, deploy, commercialize, train models on, or create derivative works
+from the source except as GitHub's Terms of Service may require for GitHub
+features. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
